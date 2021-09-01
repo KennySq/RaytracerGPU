@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.31624.102
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "RaytracerGPU", "RaytracerGPU.vcxproj", "{EAF2DCAD-F5CF-4156-8273-51C9297DB76A}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x64 = Debug|x64
+		Release|x64 = Release|x64
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{EAF2DCAD-F5CF-4156-8273-51C9297DB76A}.Debug|x64.ActiveCfg = Debug|x64
+		{EAF2DCAD-F5CF-4156-8273-51C9297DB76A}.Debug|x64.Build.0 = Debug|x64
+		{EAF2DCAD-F5CF-4156-8273-51C9297DB76A}.Release|x64.ActiveCfg = Release|x64
+		{EAF2DCAD-F5CF-4156-8273-51C9297DB76A}.Release|x64.Build.0 = Release|x64
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {E1EAD443-368C-4E09-9282-3BDE36BC1205}
+	EndGlobalSection
+EndGlobal
