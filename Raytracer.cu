@@ -1,46 +1,25 @@
 #include"Raytracer.cuh"
-extern __shared__ DWORD gPixels[];
-__shared__ LPDWORD gpuPixels;
-__shared__ LPDWORD gpuPixels2;
-texture<int, 2> texArray;
-__global__ void cudaMakePixels()
+
+
+
+typedef unsigned int uint;
+typedef unsigned char uchar;
+
+LPDWORD gPixels;
+//cudaArray* gPixelArray;
+//texture<unsigned short, cudaTextureType2D, cudaReadModeNormalizedFloat> gTexture;
+
+void cudaCopyPixels(LPDWORD cpuPixels)
 {
-
-	if (threadIdx.x == 0)
-	{
-		gpuPixels = (LPDWORD)gPixels;
-		gpuPixels2 = (LPDWORD)&gpuPixels[479999];
-	}
-
-	__syncthreads();
+	
+	cudaMemcpy(reinterpret_cast<void*>(cpuPixels), reinterpret_cast<void*>(gPixels), 4*800 * 600, cudaMemcpyDeviceToHost);
+	std::cout << cudaGetErrorString(cudaGetLastError()) << '\n';
+	/*
+	auto error = cudaMemcpyFromArray(reinterpret_cast<void*>(cpuPixels), gPixelArray, 0,0,3 * 800 * 600, cudaMemcpyDeviceToHost);
+	std::cout << cudaGetErrorString(error) << std::endl;*/
 }
 
-__global__ void cudaMakeDIB(HWND handle, HBITMAP bitmap, HDC dc, HDC memoryDC, unsigned int width, unsigned int height)
-{
-	BITMAPINFO bitInfo{};
-
-	bitInfo.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-	bitInfo.bmiHeader.biWidth = width;
-	bitInfo.bmiHeader.biHeight = height;
-	bitInfo.bmiHeader.biBitCount = 32;
-	bitInfo.bmiHeader.biPlanes = 1;
-	bitInfo.bmiHeader.biCompression = BI_RGB;
-
-	//bitmap = CreateDIBSection(dc, &bitInfo, DIB_RGB_COLORS, reinterpret_cast<void**>(&gPixels), nullptr, 0);
-
-	//memoryDC = CreateCompatibleDC(dc);
-
-	//SelectObject(memoryDC, bitmap);
-	//ReleaseDC(handle, dc);
-
-	return;
-}
-
-__host__ void cudaCopyBitmap(LPDWORD cpuPixels)
-{
-	cudaMemcpy(cpuPixels, gpuPixels, sizeof(DWORD) * 4800000, cudaMemcpyKind::cudaMemcpyDeviceToHost);
-}
-void ClearGradiantCPU(unsigned int width, unsigned int height, Color color)
+void ClearGradiantCPU(LPDWORD pixels, unsigned int width, unsigned int height, Color color)
 {
 	for (int y = height - 1; y >= 0; y--)
 	{
@@ -58,8 +37,8 @@ void ClearGradiantCPU(unsigned int width, unsigned int height, Color color)
 			color |= (ir << 16);
 			color |= (ig << 8);
 			color |= ib;
-
-		//	gPixels[(y * width) + x] = color;
+			auto index = (y * width) + x;
+			pixels[index] = color;
 		}
 	}
 }
@@ -70,8 +49,13 @@ __global__ void ClearGradiant(LPDWORD pixels, unsigned int width, unsigned int h
 
 	int writeColor = 0;
 
-	auto r = color.e[0];
-	auto g = color.e[1];
+
+
+	int x = __umul24(blockIdx.x, blockDim.x) + threadIdx.x;
+	int y = __umul24(blockIdx.y, blockDim.y) + threadIdx.y;
+
+	auto r = double(x) / (width - 1);
+	auto g = double(y) / (height - 1);
 	auto b = color.e[2];
 
 	int ir = static_cast<int>(255.999 * r);
@@ -82,14 +66,10 @@ __global__ void ClearGradiant(LPDWORD pixels, unsigned int width, unsigned int h
 	writeColor |= (ig << 8);
 	writeColor |= ib;
 
-	int x = blockIdx.x * blockDim.x + threadIdx.x;
-	int y = blockIdx.y * blockDim.y + threadIdx.y;
-	//gPixels[(y * width) + x] = writeColor;
-	auto index = blockIdx.x * blockDim.x * blockDim.y + threadIdx.y * blockDim.x + threadIdx.x;
-	printf("%d\n", index);
-	// blockIdx.x * blockDim.x * blockDim.y + threadIdx.y * blockDim.x + threadIdx.x
+	auto index = __umul24(__umul24(blockIdx.x, blockDim.x), blockDim.y) + __umul24(threadIdx.y, blockDim.x) + threadIdx.x;
 
-	pixels[index] = writeColor;
+	pixels[(y * width) + x] = writeColor;
+	
 	__syncthreads();
 
 	return;
@@ -101,7 +81,7 @@ Raytracer::Raytracer(HWND handle, HINSTANCE instance, unsigned int width, unsign
 	cudaDeviceProp prop;
 	cudaError_t error = cudaGetDeviceProperties(&prop, 0);
 	std::cout << cudaGetErrorString(error) << std::endl;;
-		BITMAPINFO bitInfo{};
+	BITMAPINFO bitInfo{};
 
 	bitInfo.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
 	bitInfo.bmiHeader.biWidth = width;
@@ -112,8 +92,6 @@ Raytracer::Raytracer(HWND handle, HINSTANCE instance, unsigned int width, unsign
 
 	HDC dc = GetDC(mHandle);
 
-//	cudaMakeDIB<<<1,1>>>(handle, mBitmap, dc, mMemoryDC, width, height);
-
 	mBitmap = CreateDIBSection(dc, &bitInfo, DIB_RGB_COLORS, reinterpret_cast<void**>(&mPixels), nullptr, 0);
 
 	mMemoryDC = CreateCompatibleDC(dc);
@@ -121,20 +99,19 @@ Raytracer::Raytracer(HWND handle, HINSTANCE instance, unsigned int width, unsign
 	SelectObject(mMemoryDC, mBitmap);
 	ReleaseDC(mHandle, dc);
 
-	cudaMakePixels<<<1,1, 49152>>>();
+	cudaMalloc(&gPixels, 4*800 * 600);
+
+
 }
 
 void Raytracer::Run()
 {
+	//ClearGradiantCPU(mPixels, mWidth, mHeight, Color(1,0,0));
+//	cudaMemcpyToArray(gPixelArray, 0, 0, reinterpret_cast<void*>(mPixels), sizeof(unsigned short) * 800 * 600, cudaMemcpyHostToDevice);
 
+	ClearGradiant << <600, 800 >> > (gPixels, mWidth, mHeight, Color(1, 1, 0.25));
 
-//	ClearGradiantCPU(mWidth, mHeight, Color(1,0,0));
-	auto error = cudaGetLastError();
-	std::cout << cudaGetErrorString(error) << std::endl;
-	
-	ClearGradiant << <6, 8>> > (gpuPixels, mWidth, mHeight, Color(1, 1, 0));
-	//cudaThreadSynchronize();
-	cudaCopyBitmap(mPixels);
+	cudaCopyPixels(mPixels);
 }
 
 void Raytracer::Release()
