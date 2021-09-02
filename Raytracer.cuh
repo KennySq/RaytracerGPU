@@ -1,8 +1,12 @@
 #include"Common.h"
 #include<Windows.h>
+#include<iostream>
+
 #include<cuda_runtime.h>
 #include<device_functions.h>
 #include<device_launch_parameters.h>
+#include<cuda_runtime_api.h>
+
 
 #ifdef __cplusplus
 extern "C" {
@@ -21,6 +25,7 @@ extern "C" {
 
 		void Release();
 	private:
+		
 		unsigned int mWidth;
 		unsigned int mHeight;
 
@@ -28,6 +33,7 @@ extern "C" {
 		HBITMAP mBitmap;
 
 		HDC mMemoryDC;
+
 		LPDWORD mPixels;
 
 		HINSTANCE mInst;
