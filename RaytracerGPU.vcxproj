@@ -12,6 +12,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Hittable.cpp" />
+    <ClCompile Include="HittableList.cpp" />
     <ClCompile Include="Ray.cpp" />
     <ClCompile Include="RaytracerGPU.cpp" />
     <ClCompile Include="Sphere.cpp" />
@@ -19,6 +20,7 @@
   <ItemGroup>
     <ClInclude Include="Common.h" />
     <ClInclude Include="Hittable.h" />
+    <ClInclude Include="HittableList.h" />
     <ClInclude Include="Ray.h" />
     <ClInclude Include="Raytracer.cuh" />
     <ClInclude Include="Resource.h" />
@@ -86,6 +88,12 @@
     </Link>
     <CudaCompile>
       <TargetMachinePlatform>64</TargetMachinePlatform>
+      <MaxRegCount>0</MaxRegCount>
+      <CodeGeneration> </CodeGeneration>
+      <PtxAsOptionV>true</PtxAsOptionV>
+      <FastMath>true</FastMath>
+      <Optimization>Od</Optimization>
+      <RuntimeChecks>InheritFromHost</RuntimeChecks>
     </CudaCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">

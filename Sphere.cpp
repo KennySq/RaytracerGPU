@@ -7,9 +7,8 @@ bool Sphere::Hit(const Ray& r, double tMin, double tMax, HitRecord& rec)
 	auto a = LengthSquared(&r.mDirection);
 
 	auto bHalf = Dot(oc, r.mDirection);
-	auto c = LengthSquared(&oc) - mRadius * mRadius;
 
-	auto discriminant = bHalf * bHalf - a * c;
+	auto discriminant = bHalf * bHalf - a * (LengthSquared(&oc) - mRadius * mRadius);
 
 	if (discriminant < 0)
 	{

@@ -1,5 +1,7 @@
 #include"Common.h"
 #include"Sphere.h"
+#include"HittableList.h"
+
 #include<Windows.h>
 #include<iostream>
 
