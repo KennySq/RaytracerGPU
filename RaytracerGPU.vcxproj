@@ -12,7 +12,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Hittable.cpp" />
-    <ClCompile Include="HittableList.cpp" />
+    <ClCompile Include="HittableList.cu" />
     <ClCompile Include="Ray.cpp" />
     <ClCompile Include="RaytracerGPU.cpp" />
     <ClCompile Include="Sphere.cpp" />
@@ -20,7 +20,7 @@
   <ItemGroup>
     <ClInclude Include="Common.h" />
     <ClInclude Include="Hittable.h" />
-    <ClInclude Include="HittableList.h" />
+    <ClInclude Include="HittableList.cuh" />
     <ClInclude Include="Ray.h" />
     <ClInclude Include="Raytracer.cuh" />
     <ClInclude Include="Resource.h" />
@@ -89,7 +89,8 @@
     <CudaCompile>
       <TargetMachinePlatform>64</TargetMachinePlatform>
       <MaxRegCount>0</MaxRegCount>
-      <CodeGeneration> </CodeGeneration>
+      <CodeGeneration>
+      </CodeGeneration>
       <PtxAsOptionV>true</PtxAsOptionV>
       <FastMath>true</FastMath>
       <Optimization>Od</Optimization>

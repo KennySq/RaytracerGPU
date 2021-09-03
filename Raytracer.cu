@@ -7,43 +7,13 @@ typedef unsigned char uchar;
 
 LPDWORD gPixels;
 
-HittableList gWorld;
-
-
-
 
 void cudaCopyPixels(LPDWORD cpuPixels)
 {
-
-	cudaMemcpy(reinterpret_cast<void*>(cpuPixels), reinterpret_cast<void*>(gPixels), 4*800 * 600, cudaMemcpyDeviceToHost);
+	cudaMemcpy(reinterpret_cast<void*>(cpuPixels), reinterpret_cast<void*>(gPixels), 4 * 800 * 600, cudaMemcpyDeviceToHost);
 	std::cout << cudaGetErrorString(cudaGetLastError()) << '\n';
 }
 
-
-
-//void ClearGradiantCPU(LPDWORD pixels, unsigned int width, unsigned int height, Color color)
-//{
-//	for (int y = height - 1; y >= 0; y--)
-//	{
-//		for (int x = 0; x < width; x++)
-//		{
-//			int color = 0;
-//			auto r = double(x) / (width - 1);
-//			auto g = double(y) / (height - 1);
-//			auto b = 0.25;
-//
-//			int ir = static_cast<int>(255.999 * r);
-//			int ig = static_cast<int>(255.999 * g);
-//			int ib = static_cast<int>(255.999 * b);
-//
-//			color |= (ir << 16);
-//			color |= (ig << 8);
-//			color |= ib;
-//			auto index = (y * width) + x;
-//			pixels[index] = color;
-//		}
-//	}
-//}
 __device__ void initCudaRandom(curandState* state)
 {
 	int id = threadIdx.x + blockDim.x * blockIdx.x;
@@ -72,38 +42,70 @@ __device__ double HitSphere(const Point3& center, double radius, const Ray& r)
 		return (-bHalf - sqrt(discriminant)) / a;
 	}
 }
-__device__ void RayColor(Color& pOutColor, const Ray& r, Hittable& world)
+
+template<typename _Ty>
+__host__ void GetMappedPointer(_Ty** ptr, unsigned int count)
+{
+	cudaSetDeviceFlags(cudaDeviceMapHost);
+
+	_Ty* hostMemory;
+
+	cudaHostAlloc((void**)&hostMemory, sizeof(_Ty) * count, cudaHostAllocMapped);
+
+	for (unsigned int i = 0; i < count; i++)
+	{
+		hostMemory[i] = (_Ty)0;
+	}
+
+	_Ty* deviceMemory;
+	cudaHostGetDevicePointer((void**)&deviceMemory, (void*)hostMemory, 0);
+	
+
+
+}
+
+__global__ void AddSphere(Vec3 center, double radius)
+{
+	if (threadIdx.x == 0)
+	{
+		Sphere* object;
+
+		cudaMalloc(reinterpret_cast<void**>(&object), sizeof(Sphere));
+
+		unsigned int count = gWorld->mCount;
+		unsigned int capacity = gWorld->mCapacity;
+
+		gWorld->Add(object);
+
+
+	}
+
+	__syncthreads();
+
+}
+
+__device__ void RayColor(Color& pOutColor, const Ray& r)
 {
 	HitRecord rec;
 
-	if (world.Hit(r, 0, INF, rec))
+	if (gWorld->Hit(r, 0, INF, rec))
 	{
 		pOutColor = 0.5 * (rec.normal + Color(1, 1, 1));
 		return;
 	}
 
-	//auto t = HitSphere(Point3(0, 0, -1), 0.5, r);
-	//
-	//if (t > 0.0)
-	//{
-	//	Vec3 n = UnitVector(r.At(t) - Vec3(0, 0, -1));
-	//	pOutColor = 0.5 * Color(n.e[0] + 1, n.e[1] + 1, n.e[2] + 1);
-	//	return;
-	//}
+	Vec3 unitDirection = UnitVector(r.mDirection);
 
-	const Vec3 unitDirection = UnitVector(r.mDirection);
-
-	const auto t = 0.5 * (unitDirection.e[1] + 1.0);
+	auto t = 0.5 * (unitDirection.e[1] + 1.0);
 
 	pOutColor = (1.0 - t) * Color(1.0, 1.0, 1.0) + t * Color(0.5, 0.7, 1.0);
-	
+
 	return;
 
 }
 
 __device__ void setColor(LPDWORD pixels, unsigned int width, unsigned int height, Color color)
 {
-
 	int writeColor = 0;
 
 	int x = blockIdx.x * blockDim.x + threadIdx.x;
@@ -116,7 +118,7 @@ __device__ void setColor(LPDWORD pixels, unsigned int width, unsigned int height
 	int ir = static_cast<int>(__fmul_rd(255.999, r));
 	int ig = static_cast<int>(__fmul_rd(255.999, g));
 	int ib = static_cast<int>(__fmul_rd(255.999, b));
-		
+
 	writeColor |= (ir << 16);
 	writeColor |= (ig << 8);
 	writeColor |= ib;
@@ -129,21 +131,17 @@ __device__ void setColor(LPDWORD pixels, unsigned int width, unsigned int height
 	return;
 }
 
-__global__ void CudaRender(LPDWORD pixels, unsigned int width, unsigned int height, HittableList& world)
+__global__ void CudaRender(LPDWORD pixels, unsigned int width, unsigned int height)
 {
-		
+
 	const auto aspectRatio = 4.0 / 3.0;
 	const int imageWidth = width;
 	const int imageHeight = height;
 
-	const auto viewportHeight = 2.0;
-	const auto viewportWidth = aspectRatio * viewportHeight;
-	const auto focalLength = 1.0;
-
-	const auto origin = Point3(0, 0, 0);
-	const auto horizontal = Vec3(viewportWidth, 0, 0);
-	const auto vertical = Vec3(0, viewportHeight, 0);
-	const auto lowerLeft = origin - horizontal / 2 - vertical / 2 - Vec3(0, 0, focalLength);
+	auto origin = Point3(0, 0, 0);
+	auto horizontal = Vec3(aspectRatio * 2.0, 0, 0);
+	auto vertical = Vec3(0, 2.0, 0);
+	auto lowerLeft = origin - horizontal / 2 - vertical / 2 - Vec3(0, 0, 1.0);
 
 	int x = blockIdx.x * blockDim.x + threadIdx.x;
 	int y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -153,10 +151,10 @@ __global__ void CudaRender(LPDWORD pixels, unsigned int width, unsigned int heig
 
 	Ray r(origin, lowerLeft + u * horizontal + v * vertical - origin);
 	Color outColor;
-	RayColor(outColor, r, world);
 
+	RayColor(outColor, r);
 	setColor(pixels, width, height, outColor);
-	
+
 }
 
 __global__ void ClearGradiant(LPDWORD pixels, unsigned int width, unsigned int height, Color color)
@@ -167,9 +165,9 @@ __global__ void ClearGradiant(LPDWORD pixels, unsigned int width, unsigned int h
 	int x = blockIdx.x * blockDim.x + threadIdx.x;
 	int y = blockIdx.y * blockDim.y + threadIdx.y;
 
-	auto r =  __fdiv_rn(threadIdx.x, (width - 1));
-	auto g =  __fdiv_ru(blockIdx.x, (height - 1));
-	auto b =  color.e[2];
+	auto r = __fdiv_rn(threadIdx.x, (width - 1));
+	auto g = __fdiv_ru(blockIdx.x, (height - 1));
+	auto b = color.e[2];
 
 	int ir = static_cast<int>(__fmul_rd(255.999, r));
 	int ig = static_cast<int>(__fmul_rd(255.999, g));
@@ -213,15 +211,17 @@ Raytracer::Raytracer(HWND handle, HINSTANCE instance, unsigned int width, unsign
 	SelectObject(mMemoryDC, mBitmap);
 	ReleaseDC(mHandle, dc);
 
-	cudaMalloc(&gPixels, 4*800 * 600);
+	cudaMalloc(&gPixels, 4 * 800 * 600);
 	std::cout << cudaGetErrorString(cudaGetLastError()) << '\n';
 
-	//gWorld = reinterpret_cast<HittableList*>(malloc(sizeof(HittableList)));
+	cudaMalloc(reinterpret_cast<void**>(&gWorld), sizeof(Hittable) * 4);
 
-	//cudaMalloc(world, sizeof(Hittable) * 4);
-
-	//gWorld.Add(new Sphere(Point3(0, 0, -1), 0.5));
-	//gWorld.Add(new Sphere(Point3(0, -100.5, -1), 100));
+	AddSphere << <1, 1 >> > (Point3(0, 0, -1), 0.5);
+	std::cout << cudaGetErrorString(cudaGetLastError()) << '\n';
+	AddSphere << <1, 1 >> > (Point3(0, -100.5, -1), 100);
+	std::cout << cudaGetErrorString(cudaGetLastError()) << '\n';
+	//gWorld->Add(new Sphere(Point3(0, 0, -1), 0.5));
+	//gWorld->Add(new Sphere(Point3(0, -100.5, -1), 100));
 
 
 
@@ -232,7 +232,7 @@ void Raytracer::Run()
 	//ClearGradiantCPU(mPixels, mWidth, mHeight, Color(1,0,0));
 
 	//ClearGradiant << <600, 800>> > (gPixels, mWidth, mHeight, Color(1, 1, 0.25));
-	CudaRender << <600, 800>> > (gPixels, mWidth, mHeight, gWorld);
+	CudaRender << <600, 800 >> > (gPixels, mWidth, mHeight);
 	std::cout << cudaGetErrorString(cudaGetLastError()) << '\n';
 
 

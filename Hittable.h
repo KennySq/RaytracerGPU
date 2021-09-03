@@ -18,6 +18,6 @@ struct HitRecord
 class Hittable
 {
 public:
-	__device__ virtual bool Hit(const Ray& r, double tMin, double tMax, HitRecord& rec) = 0;
+	__host__ __device__ virtual bool Hit(const Ray& r, double tMin, double tMax, HitRecord& rec) = 0;
 };
 

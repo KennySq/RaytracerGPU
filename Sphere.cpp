@@ -1,6 +1,6 @@
 #include "Sphere.h"
 
-bool Sphere::Hit(const Ray& r, double tMin, double tMax, HitRecord& rec)
+__host__ __device__ bool Sphere::Hit(const Ray& r, double tMin, double tMax, HitRecord& rec)
 {
 	Vec3 oc = r.mOrigin - mCenter;
 

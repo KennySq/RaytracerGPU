@@ -1,6 +1,6 @@
-#include "HittableList.h"
+#include "HittableList.cuh"
 
-bool HittableList::Hit(const Ray& r, double tMin, double tMax, HitRecord& rec)
+__host__ __device__ bool HittableList::Hit(const Ray& r, double tMin, double tMax, HitRecord& rec)
 {
     HitRecord tempRec;
 

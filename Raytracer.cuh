@@ -1,6 +1,6 @@
 #include"Common.h"
 #include"Sphere.h"
-#include"HittableList.h"
+#include"HittableList.cuh"
 
 #include<Windows.h>
 #include<iostream>
@@ -18,6 +18,7 @@
 #include<device_functions.h>
 #include<device_launch_parameters.h>
 #include<cuda_runtime_api.h>
+#include<device_types.h>
 
 
 
