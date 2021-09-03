@@ -1,6 +1,7 @@
 #pragma once
-#include<cuda_runtime.h>
-__device__ inline double Clamp(double x, double min, double max)
+
+
+inline double Clamp(double x, double min, double max)
 {
 	if (x < min)
 	{
@@ -16,3 +17,4 @@ __device__ inline double Clamp(double x, double min, double max)
 }
 
 #include"Vec3.h"
+#include"Ray.h"

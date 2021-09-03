@@ -1,12 +1,7 @@
 #include"Common.h"
+#include"Sphere.h"
 #include<Windows.h>
 #include<iostream>
-
-#include<cuda_runtime.h>
-#include<device_functions.h>
-#include<device_launch_parameters.h>
-#include<cuda_runtime_api.h>
-
 
 #ifdef __CUDACC__
 #define KERNEL_ARGS2(grid, block) <<< grid, block >>>
@@ -17,6 +12,13 @@
 #define KERNEL_ARGS3(grid, block, sh_mem)
 #define KERNEL_ARGS4(grid, block, sh_mem, stream)
 #endif
+#include<cuda_runtime.h>
+#include<device_functions.h>
+#include<device_launch_parameters.h>
+#include<cuda_runtime_api.h>
+
+
+
 
 #ifdef __cplusplus
 extern "C" {
@@ -34,6 +36,7 @@ extern "C" {
 		void setColor(int x, int y);
 
 		void Release();
+
 	private:
 		
 		unsigned int mWidth;
