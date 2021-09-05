@@ -8,10 +8,10 @@ public:
 		: mOrigin(origin), mDirection(direction)
 	{}
 
-	__device__ Point3 At(double t) const { return mOrigin + t * mDirection; }
+	inline __device__ Point3 At(float t) const { return mOrigin + t * mDirection; }
 
 public:
 	Point3 mOrigin;
 	Vec3 mDirection;
-
+	float mPadding[2];
 };

@@ -1,5 +1,5 @@
 #include"Common.h"
-#include"Sphere.h"
+#include"Sphere.cuh"
 #include"HittableList.cuh"
 
 #include<Windows.h>

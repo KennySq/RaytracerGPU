@@ -11,20 +11,20 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="Hittable.cpp" />
+    <ClCompile Include="Hittable.cu" />
     <ClCompile Include="HittableList.cu" />
-    <ClCompile Include="Ray.cpp" />
-    <ClCompile Include="RaytracerGPU.cpp" />
-    <ClCompile Include="Sphere.cpp" />
+    <ClCompile Include="Ray.cu" />
+    <ClCompile Include="RaytracerGPU.cu" />
+    <ClCompile Include="Sphere.cu" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Common.h" />
-    <ClInclude Include="Hittable.h" />
+    <ClInclude Include="Hittable.cuh" />
     <ClInclude Include="HittableList.cuh" />
-    <ClInclude Include="Ray.h" />
+    <ClInclude Include="Ray.cuh" />
     <ClInclude Include="Raytracer.cuh" />
     <ClInclude Include="Resource.h" />
-    <ClInclude Include="Sphere.h" />
+    <ClInclude Include="Sphere.cuh" />
     <ClInclude Include="targetver.h" />
     <ClInclude Include="Vec3.h" />
   </ItemGroup>
