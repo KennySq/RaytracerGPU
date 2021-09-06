@@ -53,13 +53,8 @@ __global__ void cudaCopyScene(Sphere* hostScene, unsigned int count)
 
 			printf("%p\n", &deviceScene[i]);
 		}
-
 	}
-
-	
 	__syncthreads();
-
-
 }
 __device__ void setColor(LPDWORD pixels, unsigned int width, unsigned int height, Color color)
 {
@@ -97,12 +92,12 @@ __device__ void RayColor(LPDWORD pixels, const Ray& r, unsigned int count, unsig
 //#endif
 	Sphere sphere = deviceScene[gridDim.z];
 
-	if(sphere.Hit(r, 0, INF, rec))
-	{
-		pOutColor = 0.5 * (rec.normal + Color(1, 1, 1));
-		setColor(pixels, width, height, pOutColor);
-		return;
-	}
+	//if(sphere.Hit(r, 0, INF, rec))
+	//{
+	//	pOutColor = 0.5 * (rec.normal + Color(1, 1, 1));
+	//	setColor(pixels, width, height, pOutColor);
+	//	return;
+	//}
 
 	Vec3 unitDirection = UnitVector(r.mDirection);
 
@@ -227,7 +222,7 @@ Raytracer::Raytracer(HWND handle, HINSTANCE instance, unsigned int width, unsign
 	printf("\t - Success.\n");
 
 	printf("Start copying host memory to device.\n");
-	error = cudaMemcpy((void*)deviceScene, (void*)hostScene.data(), sizeof(Sphere) * 2, cudaMemcpyHostToDevice);
+	error = cudaMemcpy(deviceScene, hostScene.data(), sizeof(Sphere) * 2, cudaMemcpyDeviceToHost);
 
 	if (error != cudaError::cudaSuccess)
 	{
