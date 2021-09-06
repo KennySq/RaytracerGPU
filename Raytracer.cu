@@ -4,82 +4,62 @@ typedef unsigned int uint;
 typedef unsigned char uchar;
 
 LPDWORD gPixels;
+__device__ Sphere* deviceScene;
 
-__device__ Hittable* deviceScene;
-std::vector<Hittable*> hostScene;
 
-void cudaCopyPixels(LPDWORD cpuPixels)
+std::vector<Sphere> hostScene;
+
+
+
+__global__ void cudaCopyPixels(LPDWORD cpuPixels, LPDWORD gpuPixels, unsigned int size)
 {
-	cudaMemcpy((void*)(cpuPixels), (void*)(gPixels), 4 * 800 * 600, cudaMemcpyDeviceToHost);
-	std::cout << cudaGetErrorString(cudaGetLastError()) << '\n';
-}
 
-__device__ void initCudaRandom(curandState* state)
-{
-	int id = threadIdx.x + blockDim.x * blockIdx.x;
-	unsigned int seed = id;
-
-	curand_init(seed, 0, 0, &state[id]);
-}
-
-__device__ float HitSphere(const Point3& center, float radius, const Ray& r)
-{
-	Vec3 oc = r.mOrigin - center;
-
-	auto a = LengthSquared(&r.mDirection);
-
-	auto bHalf = Dot(oc, r.mDirection);
-	auto c = LengthSquared(&oc) - radius * radius;
-
-	auto discriminant = bHalf * bHalf - a * c;
-
-	if (discriminant < 0)
+	if (threadIdx.x == 0)
 	{
-		return -1.0;
+		for (unsigned int i = 0; i < size; i++)
+		{
+			cpuPixels[i] = gpuPixels[i];
+		}
 	}
-	else
-	{
-		return (-bHalf - sqrt(discriminant)) / a;
-	}
-}
-
-template<typename _Ty>
-__host__ void GetMappedPointer(_Ty** ptr, unsigned int count)
-{
-	cudaSetDeviceFlags(cudaDeviceMapHost);
-
-	_Ty* hostMemory;
-
-	cudaHostAlloc((void**)&hostMemory, sizeof(_Ty) * count, cudaHostAllocMapped);
-
-	for (unsigned int i = 0; i < count; i++)
-	{
-		hostMemory[i] = (_Ty)0;
-	}
-
-	_Ty* deviceMemory;
-	cudaHostGetDevicePointer((void**)&deviceMemory, (void*)hostMemory, 0);
 	
-
-
+	__syncthreads();
 }
 
-void cudaCopyScene(Hittable* deviceScene, std::vector<Hittable*>& host)
+__global__ void cudaInitDeviceMemory()
 {
+	printf("cudaInitDeviceMemory\n");
 
+	printf("\t - Malloc device scene memory.\n");
+	deviceScene = (Sphere*)(malloc(sizeof(Sphere) * 2));
 
+	printf("\t\t Malloc result : %p\n", &deviceScene[0]);
+	printf("\t\t Malloc result : %p\n", &deviceScene[1]);
 
-	for (unsigned int i = 0; i < host.size(); i++)
+	printf("\t\t %d thread acquire %p \n", threadIdx.x, &deviceScene[0]);
+	printf("\t\t %d thread acquire %p \n", threadIdx.x, &deviceScene[1]);
+}
+
+__global__ void cudaCopyScene(Sphere* hostScene, unsigned int count)
+{
+	printf("copy scene (gpu)\n");
+
+	printf("\tdevice object - %p\n", &deviceScene[0]);
+	printf("\thost object - %p\n", hostScene[0]);
+	if (threadIdx.x == 0)
 	{
-		void* dst = (void*)(&deviceScene[i]);
-		void* src = (void*)(host.data()[i]);
+		for (unsigned int i = 0; i < count; i++)
+		{
+			deviceScene[i] = hostScene[i];
 
+			printf("%p\n", &deviceScene[i]);
+		}
 
-		cudaError_t error = cudaMemcpy(dst, src, sizeof(Hittable*), cudaMemcpyHostToDevice);
-#ifdef _DEBUG
-		std::cout << cudaGetErrorString(error) << std::endl;
-#endif
 	}
+
+	
+	__syncthreads();
+
+
 }
 __device__ void setColor(LPDWORD pixels, unsigned int width, unsigned int height, Color color)
 {
@@ -100,48 +80,41 @@ __device__ void setColor(LPDWORD pixels, unsigned int width, unsigned int height
 	writeColor |= (ig << 8);
 	writeColor |= ib;
 
-	auto index = __umul24(__umul24(blockIdx.x, blockDim.x), blockDim.y) + __umul24(threadIdx.y, blockDim.x) + threadIdx.x;
-
+	auto index = y * width + x;
 	pixels[index] = writeColor;
 	__syncthreads();
 
 	return;
 }
 
-__device__ void RayColor(LPDWORD pixels, const Ray& r, Hittable* pRawDeviceScene, unsigned int count, unsigned int width, unsigned int height)
+__device__ void RayColor(LPDWORD pixels, const Ray& r, unsigned int count, unsigned int width, unsigned int height)
 {
 	HitRecord rec;
 	Color pOutColor;
-	for (unsigned int i = 0; i < count; i++)
-	{
 //#ifdef _DEBUG
 //
 //		printf("%d\n", &pRawDeviceScene[i]);
 //#endif
-		auto sphere = (Sphere*)(&pRawDeviceScene[i]);
+	Sphere sphere = deviceScene[gridDim.z];
 
-		if(sphere->Hit(r, 0, INF, rec))
-		{
-			//pOutColor = 0.5 * (rec.normal + Color(1, 1, 1));
-			//setColor(pixels, width, height, pOutColor);
-
-			continue;
-		}
-
-		Vec3 unitDirection = UnitVector(r.mDirection);
-
-		auto t = 0.5 * (unitDirection.e[1] + 1.0);
-
-		pOutColor = (1.0 - t) * Color(1.0, 1.0, 1.0) + t * Color(0.5, 0.7, 1.0);
+	if(sphere.Hit(r, 0, INF, rec))
+	{
+		pOutColor = 0.5 * (rec.normal + Color(1, 1, 1));
 		setColor(pixels, width, height, pOutColor);
+		return;
 	}
 
-	return;
+	Vec3 unitDirection = UnitVector(r.mDirection);
 
+	auto t = 0.5 * (unitDirection.e[1] + 1.0);
+	pOutColor = (1.0 - t) * Color(1.0, 1.0, 1.0) + t * Color(0.5, 0.7, 1.0);
+	setColor(pixels, width, height, pOutColor);
+
+	return;
 }
 
 
-__global__ void CudaRender(LPDWORD pixels, unsigned int width, unsigned int height, Hittable* deviceScene, unsigned int count)
+__global__ void CudaRender(LPDWORD pixels, unsigned int width, unsigned int height, unsigned int count)
 {
 
 	const auto aspectRatio = 4.0 / 3.0;
@@ -156,13 +129,14 @@ __global__ void CudaRender(LPDWORD pixels, unsigned int width, unsigned int heig
 	int x = blockIdx.x * blockDim.x + threadIdx.x;
 	int y = blockIdx.y * blockDim.y + threadIdx.y;
 
-	auto u = float(threadIdx.x) / (width - 1);
-	auto v = float(blockIdx.x) / (height - 1);
+	auto u = float(x) / (width - 1);
+	auto v = float(y) / (height - 1);
 
 	Ray r(origin, lowerLeft + u * horizontal + v * vertical - origin);
 
-	RayColor(pixels, r, deviceScene, count, width, height);
+	RayColor(pixels, r, count, width, height);
 
+	__syncthreads();
 }
 
 __global__ void ClearGradiant(LPDWORD pixels, unsigned int width, unsigned int height, Color color)
@@ -170,11 +144,17 @@ __global__ void ClearGradiant(LPDWORD pixels, unsigned int width, unsigned int h
 
 	int writeColor = 0;
 
+	//int x = blockIdx.x * blockDim.x + threadIdx.x;
+	//int y = blockIdx.y * blockDim.y + threadIdx.y;
+
+	//auto r = __fdiv_rn(threadIdx.x, (width - 1));
+	//auto g = __fdiv_ru(blockIdx.x, (height - 1));
+ 
 	int x = blockIdx.x * blockDim.x + threadIdx.x;
 	int y = blockIdx.y * blockDim.y + threadIdx.y;
 
-	auto r = __fdiv_rn(threadIdx.x, (width - 1));
-	auto g = __fdiv_ru(blockIdx.x, (height - 1));
+	auto r = __fdiv_rn(x, (width - 1));
+	auto g = __fdiv_ru(y, (height - 1));
 	auto b = color.e[2];
 
 	int ir = static_cast<int>(__fmul_rd(255.999, r));
@@ -185,8 +165,7 @@ __global__ void ClearGradiant(LPDWORD pixels, unsigned int width, unsigned int h
 	writeColor |= (ig << 8);
 	writeColor |= ib;
 
-	auto index = __umul24(__umul24(blockIdx.x, blockDim.x), blockDim.y) + __umul24(threadIdx.y, blockDim.x) + threadIdx.x;
-
+	auto index = y * width + x;
 	pixels[index] = writeColor;
 	__syncthreads();
 
@@ -222,16 +201,44 @@ Raytracer::Raytracer(HWND handle, HINSTANCE instance, unsigned int width, unsign
 	error = cudaMalloc((void**)(&gPixels), 4 * 800 * 600);
 	std::cout << cudaGetErrorString(error) << '\n';
 
-	error = cudaMalloc((void**)(&deviceScene), sizeof(Hittable*) * 2);
-	std::cout << cudaGetErrorString(error) << '\n';
+	//error = cudaMalloc((void**)(&deviceScene), sizeof(Hittable*) * 2);
+	//std::cout << cudaGetErrorString(error) << '\n';
 
-	error = cudaMemset((void**)(deviceScene), 0, sizeof(Hittable*) * 2);
-	std::cout << cudaGetErrorString(error) << '\n';
+	//error = cudaMemset((void**)(deviceScene), 0, sizeof(Hittable*) * 2);
+	//std::cout << cudaGetErrorString(error) << '\n';
 
-	hostScene.push_back(new Sphere(Point3(0, 0, -1), 0.5));
-	hostScene.push_back(new Sphere(Point3(0, -100.5, -1), 100));
+	hostScene.push_back(Sphere(Point3(0, 0, -1), 0.5));
+	hostScene.push_back(Sphere(Point3(0, -100.5, -1), 100));
 
-	cudaCopyScene(deviceScene, hostScene);
+	//cudaInitDeviceMemory << <1, 1>> > ();
+
+	cudaDeviceSynchronize();
+	//cudaCopyScene<<<1,1>>>(hostScene.data(), hostScene.size());
+
+	printf("Start malloc device memory.\n");
+	error = cudaMalloc((void**)&deviceScene, sizeof(Sphere) * 2);
+	if (error != cudaError::cudaSuccess)
+	{
+		printf("critical error occured, result must be cudaSuccess.\n");
+		printf("%s\n", cudaGetErrorString(error));
+		terminate();
+		//throw std::runtime_error("");
+	}
+	printf("\t - Success.\n");
+
+	printf("Start copying host memory to device.\n");
+	error = cudaMemcpy((void*)deviceScene, (void*)hostScene.data(), sizeof(Sphere) * 2, cudaMemcpyHostToDevice);
+
+	if (error != cudaError::cudaSuccess)
+	{
+		printf("critical error occured, result must be cudaSuccess.\n");
+		printf("%s\n", cudaGetErrorString(error));
+		terminate();
+		//throw std::runtime_error("");
+	}
+	printf("\t - Success.\n");
+
+	cudaDeviceSynchronize();
 
 	//ClearGradiant << <600, 800>> > (gPixels, mWidth, mHeight, Color(1, 1, 0.25));
 
@@ -239,15 +246,32 @@ Raytracer::Raytracer(HWND handle, HINSTANCE instance, unsigned int width, unsign
 
 void Raytracer::Run()
 {
-	//ClearGradiant << <600, 800>> > (gPixels, mWidth, mHeight, Color(1, 1, 0.25));
-	auto rawScene = deviceScene;
+	dim3 blocks = dim3(16, 12, 1);
+	dim3 grids = dim3(800 / blocks.x, 600 / blocks.y, hostScene.size());
+	cudaError error;
+	//ClearGradiant << <grids, blocks>> > (gPixels, mWidth, mHeight, Color(1, 1, 0.25));
 
-	CudaRender << <600, 800 >> > (gPixels, mWidth, mHeight, rawScene, hostScene.size());
-	cudaDeviceSynchronize();
-	std::cout << cudaGetErrorString(cudaGetLastError()) << '\n';
-	//cudaThreadSynchronize();
+	CudaRender << <grids, blocks>> > (gPixels, mWidth, mHeight, hostScene.size());
+	error = cudaGetLastError();
+	
+	if (error != cudaError::cudaSuccess)
+	{
+		std::cerr << "critical error occured, result must be cudaSuccess.\n";
+		std::cerr << cudaGetErrorString(error) << std::endl;
 
-	cudaCopyPixels(mPixels);
+		throw std::runtime_error("");
+	}
+	//cudaCopyPixels<<<1,1>>>(mPixels,gPixels, 800 * 600);
+
+	error = cudaMemcpy((void*)mPixels, (void*)gPixels, sizeof(DWORD) * 800 * 600, cudaMemcpyDeviceToHost);
+	if (error != cudaError::cudaSuccess)
+	{
+		std::cerr << "critical error occured, result must be cudaSuccess.\n";
+		std::cerr << cudaGetErrorString(error) << std::endl;
+
+		throw std::runtime_error("");
+	}
+
 }
 
 void Raytracer::Release()

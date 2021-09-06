@@ -14,7 +14,6 @@
 #define KERNEL_ARGS3(grid, block, sh_mem)
 #define KERNEL_ARGS4(grid, block, sh_mem, stream)
 #endif
-#include<cuda_runtime.h>
 #include<device_functions.h>
 #include<device_launch_parameters.h>
 #include<cuda_runtime_api.h>

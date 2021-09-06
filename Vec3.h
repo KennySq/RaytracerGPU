@@ -1,6 +1,5 @@
 #pragma once
 
-#include<cmath>
 #include<random>
 #include<cuda_runtime.h>
 #include<device_functions.h>
@@ -30,10 +29,6 @@ public:
 	__host__ __device__ Vec3() : e{ 0,0,0 } {}
 	__host__ __device__ Vec3(float e0, float e1, float e2) : e{ e0,e1,e2 } {}
 
-//	float x() const { return e[0]; }
-//	float y() const { return e[1]; }
-//	float z() const { return e[2]; }
-//
 	inline __device__ Vec3 operator-() const { return Vec3(-e[0], -e[1], -e[2]); }
 //	float operator[](int i) const { return e[i]; }
 //	float& operator[](int i) { return e[i]; }
@@ -74,7 +69,7 @@ public:
 //		return Vec3(Rand(min, max), Rand(min, max), Rand(min, max));
 //	}
 public:
-	float __align__(16) e[3];
+	float e[3];
 }Point3, Color;
 
 //__device__ Vec3 Radnom()

@@ -4,7 +4,9 @@
 #include<memory>
 
 #include<cuda.h>
-#include<cuda_runtime.h>
+#include<cuda_runtime_api.h>
+#include<device_functions.h>
+#include<device_launch_parameters.h>
 #include<thrust/device_vector.h>
 using std::shared_ptr;
 using std::make_shared;
