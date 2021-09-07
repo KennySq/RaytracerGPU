@@ -11,13 +11,29 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="Hittable.cu" />
-    <ClCompile Include="HittableList.cu" />
-    <ClCompile Include="Ray.cu" />
-    <ClCompile Include="RaytracerGPU.cu" />
-    <ClCompile Include="Sphere.cu" />
+    <CudaCompile Include="Hittable.cu">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>
+      <FileType>Document</FileType>
+    </CudaCompile>
+    <CudaCompile Include="HittableList.cu">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>
+      <FileType>Document</FileType>
+    </CudaCompile>
+    <CudaCompile Include="Ray.cu">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>
+      <FileType>Document</FileType>
+    </CudaCompile>
+    <CudaCompile Include="RaytracerGPU.cu">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>
+      <FileType>Document</FileType>
+    </CudaCompile>
+    <CudaCompile Include="Sphere.cu">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>
+      <FileType>Document</FileType>
+    </CudaCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Camera.cuh" />
     <ClInclude Include="Common.h" />
     <ClInclude Include="Hittable.cuh" />
     <ClInclude Include="HittableList.cuh" />
@@ -29,7 +45,9 @@
     <ClInclude Include="Vec3.h" />
   </ItemGroup>
   <ItemGroup>
-    <CudaCompile Include="Raytracer.cu" />
+    <CudaCompile Include="Raytracer.cu">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>
+    </CudaCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="cpp.hint" />

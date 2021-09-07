@@ -9,20 +9,23 @@
 #include<curand_uniform.h>
 
 
-//__device__ float Rand()
-//{
-//	float randValue;
-//	curandState* state;
-//	
-//	randValue = curand_uniform(state);
-//
-//	return randValue;
-//}
-//
-//__device__ float Rand(float min, float max)
-//{
-//	return min + (max - min) * Rand();
-//}
+inline __device__ float Rand(curandState* randState, int tid)
+{
+	float randValue =  0;
+
+	curand_init(tid, 0, 0, &randState[tid]);
+	randValue = curand_uniform(&randState[tid]);
+
+	return randValue;
+}
+
+inline __device__ float Rand(float min, float max, curandState* randState, int tid)
+{
+	return min + (max - min) * Rand(randState, tid);
+}
+
+
+
 typedef struct __align__(16) Vec3
 {
 public:
@@ -33,14 +36,14 @@ public:
 //	float operator[](int i) const { return e[i]; }
 //	float& operator[](int i) { return e[i]; }
 //
-//	Vec3& operator+=(const Vec3& v)
-//	{
-//		e[0] += v.e[0];
-//		e[1] += v.e[1];
-//		e[2] += v.e[2];
-//
-//		return *this;
-//	}
+	inline __device__ Vec3& operator+=(const Vec3& v)
+	{
+		e[0] += v.e[0];
+		e[1] += v.e[1];
+		e[2] += v.e[2];
+
+		return *this;
+	}
 //
 	inline __device__ Vec3& operator*=(const float t)
 	{
@@ -55,10 +58,11 @@ public:
 //	{
 //		return *this *= 1 / t;
 //	}
+
+
 //
-//	float Length() const { return sqrt(LengthSqaured()); }
-//	float LengthSqaured() const { return e[0] * e[0] + e[1] * e[1] + e[2] * e[2]; }
-//
+
+
 //	inline static Vec3 Radnom()
 //	{
 //		return Vec3(Rand(), Rand(), Rand());
@@ -72,6 +76,28 @@ public:
 	float e[3];
 }Point3, Color;
 
+
+inline __device__ Vec3 RandVec(float min, float max, curandState* randState, int tid)
+{
+	return Vec3(Rand(min, max, randState, tid), Rand(min, max, randState, tid), Rand(min, max, randState, tid));
+}
+inline __device__	float LengthSquared(const Vec3& v) { return v.e[0] * v.e[0] + v.e[1] * v.e[1] + v.e[2] * v.e[2]; }
+
+inline __device__	float Length(const Vec3& v) { return sqrt(LengthSquared(v)); }
+
+inline __device__  Vec3 RandomUnitSphere(curandState* randState, int tid)
+{
+	while (true)
+	{
+		auto p = RandVec(-1, 1, randState, tid);
+//#ifdef _DEBUG
+//		printf("%.2f, %.2f, %.2f", p.e[0], p.e[1], p.e[2]);
+//#endif
+		
+		if (LengthSquared(p) >= 1) continue;
+		return p;
+	}
+}
 //__device__ Vec3 Radnom()
 //{
 //	return Vec3(Rand(), Rand(), Rand());
@@ -83,30 +109,10 @@ public:
 //}
 
 
-//__device__  Vec3 RandomUnitSphere()
-//{
-//	while (true)
-//	{
-//		auto p = Random(-1, 1);
-//		if (LengthSqaured(&p) >= 1) continue;
-//		return p;
-//	}
-//}
 
 inline __device__ Vec3 __vsub3(const Vec3& u, const Vec3& v)
 {
 	return Vec3(u.e[0] - v.e[0], u.e[1] - v.e[1], u.e[2] - v.e[2]);
-}
-
-
-inline __device__ 	float LengthSquared(const Vec3* vec)
-{
-	return vec->e[0] * vec->e[0] + vec->e[1] * vec->e[1] + vec->e[2] * vec->e[2];
-}
-
-inline __device__ float Length(const Vec3* vec)
-{
-	return sqrt(LengthSquared(vec));
 }
 
 
@@ -149,7 +155,7 @@ inline __device__ Vec3 Cross(const Vec3& u, const Vec3& v)
 	return Vec3(u.e[1] * v.e[2] - u.e[2] * v.e[1], u.e[2] * v.e[0] - u.e[0] * v.e[2], u.e[0] * v.e[1] - u.e[1] * v.e[0]);
 }
 
-inline __device__ Vec3 UnitVector(Vec3 v)
+inline __device__ Vec3 UnitVector(const Vec3& v)
 {
-	return v / Length(&v);
+	return v / Length(v);
 }

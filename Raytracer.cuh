@@ -1,6 +1,6 @@
 #include"Common.h"
 #include"Sphere.cuh"
-#include"HittableList.cuh"
+#include"Camera.cuh"
 
 #include<Windows.h>
 #include<iostream>

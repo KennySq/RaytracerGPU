@@ -20,7 +20,7 @@ inline __device__ float Deg2Rad(float degrees)
 }
 
 
-inline float Clamp(float x, float min, float max)
+inline __device__ float Clamp(float x, float min, float max)
 {
 	if (x < min)
 	{

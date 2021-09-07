@@ -1,5 +1,6 @@
 #pragma once
-#include"Hittable.cuh"
+#include"HittableList.cuh"
+#include"Vec3.h"
 
 // 16 byte
 class Sphere
@@ -12,11 +13,11 @@ public:
 	{
 		Vec3 oc = r.mOrigin - mCenter;
 		
-		auto a = LengthSquared(&r.mDirection);
+		auto a = LengthSquared(r.mDirection);
 		
 		auto bHalf = Dot(oc, r.mDirection);
 		
-		auto discriminant = bHalf * bHalf - a * (LengthSquared(&oc) - mRadius * mRadius);
+		auto discriminant = bHalf * bHalf - a * (LengthSquared(oc) - mRadius * mRadius);
 		
 		if (discriminant < 0)
 		{
