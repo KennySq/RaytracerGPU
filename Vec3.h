@@ -13,7 +13,6 @@ inline __device__ float Rand(curandState* randState, int tid)
 {
 	float randValue =  0;
 
-	curand_init(tid, 0, 0, &randState[tid]);
 	randValue = curand_uniform(&randState[tid]);
 
 	return randValue;
@@ -21,7 +20,7 @@ inline __device__ float Rand(curandState* randState, int tid)
 
 inline __device__ float Rand(float min, float max, curandState* randState, int tid)
 {
-	return min + (max - min) * Rand(randState, tid);
+	return min + (max - min) * Rand(&randState[tid], tid);
 }
 
 
@@ -85,19 +84,7 @@ inline __device__	float LengthSquared(const Vec3& v) { return v.e[0] * v.e[0] + 
 
 inline __device__	float Length(const Vec3& v) { return sqrt(LengthSquared(v)); }
 
-inline __device__  Vec3 RandomUnitSphere(curandState* randState, int tid)
-{
-	while (true)
-	{
-		auto p = RandVec(-1, 1, randState, tid);
-//#ifdef _DEBUG
-//		printf("%.2f, %.2f, %.2f", p.e[0], p.e[1], p.e[2]);
-//#endif
-		
-		if (LengthSquared(p) >= 1) continue;
-		return p;
-	}
-}
+
 //__device__ Vec3 Radnom()
 //{
 //	return Vec3(Rand(), Rand(), Rand());
@@ -158,4 +145,26 @@ inline __device__ Vec3 Cross(const Vec3& u, const Vec3& v)
 inline __device__ Vec3 UnitVector(const Vec3& v)
 {
 	return v / Length(v);
+}
+
+inline __device__  Vec3 RandomUnitSphere(curandState* randState, int tid)
+{
+
+	Vec3 p{};
+
+	//do
+	//{
+	//	p = 2.0f * Vec3(curand_uniform(randState), curand_uniform(randState), curand_uniform(randState)) - Vec3(1, 1, 1);
+	//} while (LengthSquared(p) >= 1.0f);
+
+	while (true)
+	{
+		p = RandVec(-1, 1, randState, tid);//Vec3(curand_uniform(randState), curand_uniform(randState), curand_uniform(randState));
+
+		if (LengthSquared(p) >= 1) continue;
+		return p;
+	}
+
+
+
 }

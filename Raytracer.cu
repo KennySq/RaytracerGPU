@@ -162,71 +162,76 @@ __global__ void clearPixels(LPDWORD pixels, unsigned int width, unsigned int hei
 	setColor(pixels, width, height, outColor, 0, sampleCount);
 }
 
-__device__ void RayColor(LPDWORD pixels, Color& pOutColor, const Ray& r, unsigned int count, unsigned int width, unsigned int height, Sphere* deviceScene, int depth, int tid, curandState* randState)
+__device__ Color RayColor(LPDWORD pixels, Ray& r, unsigned int count, unsigned int width, unsigned int height, Sphere* deviceScene, int depth, int tid, curandState* randState)
 {
-	if (depth <= 0)
-	{
-		return;
-	}
 
-	HitRecord rec;
 	Sphere sphere = deviceScene[blockIdx.z];
+	Color outColor{};
 
-	if(sphere.Hit(r, 0, INF, rec))
+	for (unsigned int j = 0; j < blockDim.z; j++)
 	{
+		Ray curRay = r;
+		float atten = 1.0f;
 
-		Point3 target = rec.p + rec.normal; //+ RandomUnitSphere(randState, tid);
+		sphere = deviceScene[j];
 
-	//	__syncthreads();
-//#ifdef _DEBUG
-//		printf("%.2f, %.2f, %.2f", target.e[0], target.e[1], target.e[2]);
-//#endif
-		RayColor(pixels, pOutColor, Ray(rec.p, target - rec.p), sampleCount, width, height, deviceScene, depth - 1, tid, randState);
-		pOutColor += 0.5 * pOutColor;
+		for (unsigned int i = 0; i < depth; i++)
+		{
+			HitRecord rec{};
 
-			
-		//__syncthreads();
+			if (sphere.Hit(curRay, 0.001f, INF, rec))
+			{
+				Point3 target = rec.p + rec.normal + RandomUnitSphere(randState, tid);
+
+				atten *= 0.5;
+				//outColor *= atten;
+
+				curRay = Ray(rec.p, target - rec.p);
+				//return Color(1, 1, 1);
+			}
+		}
+
+		Vec3 unitDirection = UnitVector(curRay.mDirection);
+
+		auto t = 0.5 * (unitDirection.e[1] + 1.0);
+		outColor = (1.0 - t) * Color(1.0, 1.0, 1.0) + t * Color(0.5, 0.7, 1.0);
+
+		return atten * outColor;
 		
-		//setColor(pixels, width, height, outColor, 1, 1);
-	
+		
+
 	}
-
-	__syncthreads();
-
-	return;
+	return Color(0,0,0);
 }
 
 
 __global__ void CudaRender(LPDWORD pixels, unsigned int width, unsigned int height, unsigned int count, Sphere* deviceScene, int sampleCount,curandState* randState)
 {
-
 	const auto aspectRatio = 4.0 / 3.0;
 	const int imageWidth = width;
 	const int imageHeight = height;
-	const int depth = 23;
+	const int depth = 50;
 
 	auto origin = Point3(0, 0, 0);
 	auto horizontal = Vec3(aspectRatio * 2.0, 0, 0);
 	auto vertical = Vec3(0, 2.0, 0);
 	auto lowerLeft = origin - horizontal / 2 - vertical / 2 - Vec3(0, 0, 1.0);
 
-	int x = blockIdx.x * blockDim.x + threadIdx.x * blockIdx.z;
-	int y = blockIdx.y * blockDim.y + threadIdx.y * blockIdx.z;
+	int x = blockIdx.x * blockDim.x + threadIdx.x;
+	int y = blockIdx.y * blockDim.y + threadIdx.y;
 	int tid = y * width + x;
 
 	Color outColor{};
 
 	for (unsigned int i = 0; i < sampleCount; i++)
 	{
-
 		auto u = float(x) / (width - 1);
 		auto v = float(y) / (height - 1);
 
 		Ray r(origin, lowerLeft + u * horizontal + v * vertical - origin);
 
-		RayColor(pixels, outColor, r, count, width, height, deviceScene, depth, tid, randState);
-	
-		__syncthreads();
+		outColor += RayColor(pixels, r, count, width, height, deviceScene, depth, tid, randState);
+	//	setColor(pixels, width, height, outColor, 1, 1);
 	}
 
 	setColor(pixels, width, height, outColor, 1, sampleCount);
@@ -268,7 +273,18 @@ __global__ void ClearGradiant(LPDWORD pixels, unsigned int width, unsigned int h
 	return;
 }
 
+__global__ void cudaInitRand(curandState* deviceRandStates, int count, unsigned int width)
+{
+	int x = blockIdx.x * blockDim.x + threadIdx.x;
+	int y = blockIdx.y * blockDim.y + threadIdx.y;
+	int tid = y * width + x;
 
+	curand_init(tid, 0, 0, deviceRandStates);
+
+	__syncthreads();
+
+	return;
+}
 
 Raytracer::Raytracer(HWND handle, HINSTANCE instance, unsigned int width, unsigned int height)
 	: mHandle(handle), mInst(instance), mWidth(width), mHeight(height)
@@ -311,6 +327,10 @@ Raytracer::Raytracer(HWND handle, HINSTANCE instance, unsigned int width, unsign
 	printf("%d\n", threadCount);
 	mallocDevice<curandState>((void**)&deviceRandState, threadCount);
 	cudaDeviceSynchronize();
+
+	cudaInitRand<<<grids,blocks>>>(deviceRandState, width, threadCount);
+
+	cudaDeviceSynchronize();
 	printf("\t - Success.\n");
 	printf("Start copying host memory to device.\n");
 
@@ -330,7 +350,7 @@ void Raytracer::Run()
 	cudaError error;
 	//ClearGradiant << <grids, blocks>> > (gPixels, mWidth, mHeight, Color(1, 1, 0.25));
 
-	clearPixels << <grids, blocks >> > (gPixels, mWidth, mHeight, sampleCount);
+	//clearPixels << <grids, blocks >> > (gPixels, mWidth, mHeight, sampleCount);
 
 	cudaDeviceSynchronize();
 
@@ -341,7 +361,7 @@ void Raytracer::Run()
 	if (error != cudaError::cudaSuccess)
 	{
 		std::cerr << "\tcritical error occured, result must be cudaSuccess.\n";
-		std::cerr << cudaGetErrorString(error) << std::endl;
+		std::cerr << cudaGetErrorName(error) << '\n' << cudaGetErrorString(error) << std::endl;
 
 		throw std::runtime_error("");
 	}
